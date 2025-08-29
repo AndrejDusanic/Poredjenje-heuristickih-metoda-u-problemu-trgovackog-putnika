@@ -1,0 +1,18 @@
+algo,GA_ERX_inversion_2opt
+sol_per_pop,80
+num_parents_mating,20
+mutation_type,inversion
+mutation_percent_genes,8
+selection,tournament
+K_tournament,3
+allow_duplicate_genes,False
+generations_completed,43
+seed,42
+cities,28
+distance_km,15310.4795
+fuel_l,18372.5754
+runtime_sec,1.8431
+start_city,Seattle
+fuel_per_km,1.2
+route_indices,"[0, 1, 2, 3, 27, 4, 5, 6, 12, 13, 7, 8, 9, 11, 10, 21, 22, 23, 24, 20, 18, 17, 19, 25, 26, 14, 15, 16]"
+route_city_names,"[""Seattle"", ""San Francisco"", ""Los Angeles"", ""San Diego"", ""Phoenix"", ""Las Vegas"", ""Salt Lake City"", ""Denver"", ""Oklahoma City"", ""Dallas"", ""San Antonio"", ""Houston"", ""New Orleans"", ""Atlanta"", ""Miami"", ""Baltimore"", ""Philadelphia"", ""New York"", ""Boston"", ""Pittsburgh"", ""Cleveland"", ""Detroit"", ""Cincinnati"", ""Indianapolis"", ""St. Louis"", ""Chicago"", ""Milwaukee"", ""Minneapolis""]"

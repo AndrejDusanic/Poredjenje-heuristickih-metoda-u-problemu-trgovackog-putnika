@@ -1,11 +1,13 @@
 import argparse
 import numpy as np
 
+
 from tsp_data import cities, distance_matrix, fuel_per_km
 from tsp_utils import nn_route, canonical_start, evaluate_route
 from ga_runner import run_ga
 from io_utils import write_pergen_csv, write_summary_csv
 from viz import plot_cities, plot_route, plot_convergence
+from woa_runner import run_woa
 
 def build_initial_population(D, pop_size=80, nn_count=6, use_2opt_on_nn=False, seed=42):
     np.random.seed(seed)
@@ -21,7 +23,7 @@ def build_initial_population(D, pop_size=80, nn_count=6, use_2opt_on_nn=False, s
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--algo", default="GA", choices=["GA"], help="Koji algoritam da pokrenem")
+    parser.add_argument("--algo", default="GA", choices=["GA", "WOA"], help="Koji algoritam da pokrenem")
     parser.add_argument("--gens", type=int, default=500)
     parser.add_argument("--pop", type=int, default=80)
     parser.add_argument("--seed", type=int, default=42)
@@ -33,27 +35,42 @@ def main():
     D = distance_matrix
     n = D.shape[0]
 
-    # 1) inicijalna populacija
+    # inicijalna populacija
     initial_population = build_initial_population(D, pop_size=args.pop, nn_count=args.nn, use_2opt_on_nn=args.twoopt_nn, seed=args.seed)
 
-    # 2) prikaz gradova (opciono)
+    # prikaz gradova
     plot_cities()
 
-    # 3) pokretanje GA
-    res = run_ga(
-        initial_population=initial_population,
-        D=D,
-        fuel_per_km=fuel_per_km,
-        num_generations=args.gens,
-        sol_per_pop=args.pop,
-        seed=args.seed,
-        label=args.label
-    )
+    # pokretanje GA
+    if args.algo == "GA":
+        res = run_ga(
+            initial_population=initial_population,
+            D=D,
+            fuel_per_km=fuel_per_km,
+            num_generations=args.gens,
+            sol_per_pop=args.pop,
+            seed=args.seed,
+            label=args.label
+        )
+    elif args.algo == "WOA":
+        res = run_woa(
+            initial_population=initial_population,
+            D=D,
+            fuel_per_km=fuel_per_km,
+            num_iterations=args.gens,  # koristi isti flag
+            seed=args.seed,
+            label="WOA_ERX_OX_2opt",
+            b=1.0,
+            apply_twoopt_every=10,
+            twoopt_topk=3
+        )
+    else:
+        raise NotImplementedError(args.algo)
 
-    # 4) konvergencija
+    # konvergencija
     plot_convergence(res["hist_best"], res["hist_mean"], res["hist_median"])
 
-    # 5) finalna ruta
+    # finalna ruta
     best_route = canonical_start(res["best_route"], start_idx=0)
     dist, fuel = evaluate_route(best_route, D, fuel_per_km)
     print("\nNajbolja ruta (indeksi):", best_route)
@@ -62,7 +79,7 @@ def main():
 
     plot_route(best_route, title="Najbolja pronađena ruta")
 
-    # 6) CSV
+    # CSV
     exp_label = args.label
     seed_lbl  = args.seed
     run_id    = 1

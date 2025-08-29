@@ -60,6 +60,8 @@ def two_opt_fast(route, D, tries_without_improve=200):
 
 def canonical_start(route, start_idx=0):
     route = list(route)
+    if start_idx not in route:   # zaštita
+        return route
     i = route.index(start_idx)
     r = route[i:] + route[:i]
     return r if r[1] < r[-1] else [r[0]] + r[:0:-1]
@@ -130,3 +132,61 @@ def erx_crossover(parents, offspring_size, ga):
                 cur = int(rng.choice(bests))
         offspring.append(child)
     return np.array(offspring, dtype=int)
+
+
+def inversion_mutation(route, prob=0.1, rng=None):
+    if rng is None: rng = np.random.default_rng()
+    r = route.copy()
+    if rng.random() < prob and len(r) > 3:
+        i = rng.integers(1, len(r)-2)
+        j = rng.integers(i+1, len(r)-1)
+        r[i:j+1] = r[i:j+1][::-1]
+    return r
+
+
+def erx_one_child(p1, p2, rng=None):
+    """ERX: pravi JEDNO dete iz 2 roditelja-permutacije."""
+    if rng is None: rng = np.random.default_rng()
+    p1 = [int(x) for x in p1]; p2 = [int(x) for x in p2]
+    adj, common_adj = _erx_build_maps(p1, p2)
+    remaining = set(p1)
+    start = rng.choice([p1[0], p2[0]])
+    child = []
+    cur = int(start)
+    while remaining:
+        child.append(cur)
+        remaining.remove(cur)
+        for s in adj.values():        s.discard(cur)
+        for s in common_adj.values(): s.discard(cur)
+        if not remaining: break
+        cand = [v for v in common_adj[cur] if v in remaining]
+        if not cand:
+            cand = [v for v in adj[cur] if v in remaining]
+        if cand:
+            min_deg = min(len(adj[v]) for v in cand)
+            bests = [v for v in cand if len(adj[v]) == min_deg]
+            cur = int(rng.choice(bests))
+        else:
+            min_deg = min(len(adj[v]) for v in remaining)
+            bests = [v for v in remaining if len(adj[v]) == min_deg]
+            cur = int(rng.choice(bests))
+    return child
+
+def ox_child_with_best_segment(current, best, seg_len, rng=None):
+    """OX: uzmi segment iz 'best', popuni ostatak po redosledu iz 'current'."""
+    if rng is None: rng = np.random.default_rng()
+    n = len(current)
+    if seg_len < 2: seg_len = 2
+    if seg_len > n-1: seg_len = n-1
+    start = rng.integers(0, n - seg_len + 1)
+    end = start + seg_len
+    child = [-1]*n
+    # segment iz best
+    child[start:end] = best[start:end]
+    used = set(best[start:end])
+    fill = [g for g in current if g not in used]
+    it = iter(fill)
+    for i in range(n):
+        if child[i] == -1:
+            child[i] = next(it)
+    return child

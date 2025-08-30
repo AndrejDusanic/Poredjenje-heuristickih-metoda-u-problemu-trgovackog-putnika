@@ -1,13 +1,21 @@
 import numpy as np
 
 
+def route_length_np(route, D):
+    r = np.asarray(route, dtype=int)
+    return D[r, np.roll(r, -1)].sum()
+
 def route_length(route, D):
-    total = 0.0
-    n = len(route)
-    for i in range(n):
-        a, b = route[i], route[(i + 1) % n]
-        total += D[a, b]
-    return total
+    # fallback je ok, ali za naše dimenzije vektorizacija je čista dobit
+    try:
+        return float(route_length_np(route, D))
+    except Exception:
+        total = 0.0
+        n = len(route)
+        for i in range(n):
+            a, b = route[i], route[(i + 1) % n]
+            total += D[a, b]
+        return total
 
 def evaluate_route(route, D, fuel_per_km=1.0):
     dist = route_length(route, D)
@@ -15,17 +23,31 @@ def evaluate_route(route, D, fuel_per_km=1.0):
     return dist, fuel
 
 def fix_route(route, n=None):
+    # robustnije od len(route): ako ima duplikata, len(route) može biti manji od n
     if n is None:
-        n = len(route)
+        n = int(np.max(route)) + 1
     seen, fixed = set(), []
     for g in route:
-        gi = int(g)
+        gi = int(g) % n   # osigura da smo u [0, n-1]
         if gi not in seen:
-            seen.add(gi); fixed.append(gi)
+            seen.add(gi)
+            fixed.append(gi)
     for i in range(n):
         if i not in seen:
             fixed.append(i)
     return fixed
+
+def route_from_genes(sol, n):
+    """Za vektore gena (real/int) vrati validnu TSP permutaciju 0..n-1."""
+    base = [int(round(g)) % n for g in sol]
+    return fix_route(base, n)
+
+def is_valid_tour(route, n):
+    r = list(map(int, route))
+    return (len(r) == n) and (set(r) == set(range(n)))
+
+def tour_to_names(route, city_list):
+    return [city_list[i][0] for i in route]
 
 # Heuristike
 
@@ -40,14 +62,16 @@ def nn_route(D, start):
         route.append(nxt); unused.remove(nxt); cur = nxt
     return route
 
-def two_opt_fast(route, D, tries_without_improve=200):
+def two_opt_fast(route, D, tries_without_improve=200, rng=None):
+    if rng is None:
+        rng = np.random.default_rng()
     n = len(route)
     best = route[:]
     best_len = route_length(best, D)
     noimp = 0
     while noimp < tries_without_improve:
-        i = np.random.randint(1, n-2)
-        k = np.random.randint(i+1, n-1)
+        i = rng.integers(1, n-2)
+        k = rng.integers(i+1, n-1)
         new_route = best[:]
         new_route[i:k+1] = reversed(best[i:k+1])
         new_len = route_length(new_route, D)
@@ -57,6 +81,16 @@ def two_opt_fast(route, D, tries_without_improve=200):
         else:
             noimp += 1
     return best
+
+def inversion_mutation(route, prob=0.1, rng=None):
+    if rng is None:
+        rng = np.random.default_rng()
+    r = route.copy()
+    if rng.random() < prob and len(r) > 3:
+        i = rng.integers(1, len(r)-2)
+        j = rng.integers(i+1, len(r)-1)
+        r[i:j+1] = r[i:j+1][::-1]
+    return r
 
 def canonical_start(route, start_idx=0):
     route = list(route)
@@ -132,16 +166,6 @@ def erx_crossover(parents, offspring_size, ga):
                 cur = int(rng.choice(bests))
         offspring.append(child)
     return np.array(offspring, dtype=int)
-
-
-def inversion_mutation(route, prob=0.1, rng=None):
-    if rng is None: rng = np.random.default_rng()
-    r = route.copy()
-    if rng.random() < prob and len(r) > 3:
-        i = rng.integers(1, len(r)-2)
-        j = rng.integers(i+1, len(r)-1)
-        r[i:j+1] = r[i:j+1][::-1]
-    return r
 
 
 def erx_one_child(p1, p2, rng=None):

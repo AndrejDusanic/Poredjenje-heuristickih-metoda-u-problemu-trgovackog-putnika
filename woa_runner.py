@@ -30,6 +30,8 @@ def run_woa(
 
     hist_best, hist_mean, hist_median = [], [], []
 
+    T0 = 0.05 * (np.mean(dists) + 1e-9)   # skala ~ kilometrima
+
     t0 = time.perf_counter()
     for t in range(num_iterations):
         # WOA parametri
@@ -48,16 +50,17 @@ def run_woa(
             if p < 0.5:
                 # Encircling/search grana
                 if abs(A) < 1.0:
-                    # eksploatacija: “ka najboljem” -> ERX(Xi, best)
+                    # eksploatacija: “ka najboljem” - ERX(Xi, best)
                     child = erx_one_child(Xi, best_route, rng)
                 else:
                     # eksploracija: “ka random kitu”
-                    j = int(rng.integers(0, pop_size-1))
-                    if j >= i: j += 1
+                    j = int(rng.integers(0, pop_size))
+                    while j == i:
+                        j = int(rng.integers(0, pop_size))
                     child = erx_one_child(Xi, pop[j].tolist(), rng)
             else:
                 # Spiral: segment iz best, popuna iz Xi (OX)
-                # dužina segmenta ~ exp(b*|l|) * (n * 0.1)
+                # dužina segmenta - exp(b*|l|) * (n * 0.1)
                 l = rng.uniform(-1, 1)
                 seg_len = max(2, int(np.clip(np.exp(b*abs(l))*0.1*n, 2, n-1)))
                 child = ox_child_with_best_segment(Xi, best_route, seg_len, rng)
@@ -70,13 +73,17 @@ def run_woa(
             child = fix_route(child)
             cd = route_length(child, D)
 
-            # greedy zamena (drži bolje na istoj poziciji)
-            if cd < dists[i]:
+            T = T0 * (1.0 - t / max(1, num_iterations-1))
+            worse = cd >= dists[i]
+            accept = (not worse) or (rng.random() < np.exp(-(cd - dists[i]) / max(1e-12, T)))
+
+            if accept:
                 new_pop.append(np.array(child, dtype=int))
                 new_dists.append(cd)
             else:
                 new_pop.append(pop[i])
                 new_dists.append(dists[i])
+
 
         pop = np.array(new_pop, dtype=int)
         dists = np.array(new_dists, dtype=float)
